@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react"
 
 type Page = "Dashboard" | "Data Kuesioner" | "Hasil SAW" | "Saran Responden" | "Metode SAW" | "Pengaturan"
-type PublicPage = "home" | "survey" | "login"
+type PublicPage = "home" | "survey" | "results" | "login"
 type Rating = 1 | 2 | 3 | 4 | 5
 
 type Facility = {
@@ -1736,6 +1736,12 @@ function PublicHeader({
           Beranda
         </button>
         <button
+          className={page === "results" ? "active" : ""}
+          onClick={() => setPage("results")}
+        >
+          Hasil Analisis
+        </button>
+        <button
           className={page === "survey" ? "active" : ""}
           onClick={() => setPage("survey")}
         >
@@ -1749,7 +1755,17 @@ function PublicHeader({
   )
 }
 
-function PublicHome({ setPage }: { setPage: (page: PublicPage) => void }) {
+function PublicHome({
+  setPage,
+  results,
+  responseCount,
+}: {
+  setPage: (page: PublicPage) => void
+  results: FacilityResult[]
+  responseCount: number
+}) {
+  const rankedResults = results.filter((result) => result.validCount > 0)
+  const topResult = rankedResults[0]
   return (
     <div className="public-page">
       <PublicHeader page="home" setPage={setPage} />
@@ -1833,6 +1849,73 @@ function PublicHome({ setPage }: { setPage: (page: PublicPage) => void }) {
             yang paling membutuhkan perhatian.
           </p>
         </section>
+        <section className="public-results-section">
+          <div className="public-section-heading">
+            <div>
+              <span className="section-kicker">Hasil perhitungan SPK</span>
+              <h2>Prioritas perbaikan fasilitas</h2>
+              <p>
+                Peringkat dihitung menggunakan metode SAW dari kesenjangan
+                kepuasan, jumlah penilaian rendah, dan proporsi penilaian
+                rendah.
+              </p>
+            </div>
+            <button
+              className="public-outline"
+              onClick={() => setPage("results")}
+            >
+              Lihat hasil lengkap <Icon name="arrow" size={16} />
+            </button>
+          </div>
+          {rankedResults.length ? (
+            <>
+              <div className="public-result-summary">
+                <span className="summary-rank">01</span>
+                <div>
+                  <small>Prioritas perbaikan tertinggi</small>
+                  <h3>{topResult.name}</h3>
+                  <p>{topResult.recommendation}</p>
+                </div>
+                <div className="summary-score">
+                  <small>Skor SAW</small>
+                  <b>{formatNumber(topResult.score, 3)}</b>
+                  <span>{responseCount} responden</span>
+                </div>
+              </div>
+              <div className="public-ranking-preview">
+                {rankedResults.slice(0, 3).map((result) => (
+                  <article key={result.id}>
+                    <div className="preview-rank">
+                      <span>Peringkat</span>
+                      <b>{String(result.rank).padStart(2, "0")}</b>
+                    </div>
+                    <div className="preview-result-copy">
+                      <h3>{result.name}</h3>
+                      <div>
+                        <span>Rata-rata {formatNumber(result.average)}</span>
+                        <span>{result.lowCount} rating rendah</span>
+                      </div>
+                    </div>
+                    <strong>{formatNumber(result.score, 3)}</strong>
+                  </article>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="public-results-empty">
+              <span>
+                <Icon name="target" size={25} />
+              </span>
+              <div>
+                <h3>Hasil analisis belum dipublikasikan</h3>
+                <p>
+                  Peringkat fasilitas akan tampil setelah data kuesioner diimpor
+                  dan dihitung oleh administrator.
+                </p>
+              </div>
+            </div>
+          )}
+        </section>
         <section className="how-section">
           <span className="section-kicker">Cara berpartisipasi</span>
           <h2>Tiga langkah sederhana untuk ikut berkontribusi</h2>
@@ -1872,6 +1955,126 @@ function PublicHome({ setPage }: { setPage: (page: PublicPage) => void }) {
       <footer className="public-footer">
         <b>Junction Analytics</b>
         <span>Proyek analisis kepuasan fasilitas kampus</span>
+      </footer>
+    </div>
+  )
+}
+
+function PublicResultsPage({
+  setPage,
+  results,
+  responseCount,
+}: {
+  setPage: (page: PublicPage) => void
+  results: FacilityResult[]
+  responseCount: number
+}) {
+  const rankedResults = results.filter((result) => result.validCount > 0)
+  return (
+    <div className="public-page public-results-page">
+      <PublicHeader page="results" setPage={setPage} />
+      <main>
+        <section className="results-hero">
+          <button className="back-link" onClick={() => setPage("home")}>
+            <Icon name="back" size={17} /> Kembali ke beranda
+          </button>
+          <div>
+            <span className="section-kicker">Hasil analisis fasilitas</span>
+            <h1>
+              Peringkat prioritas
+              <br />
+              <em>perbaikan kampus.</em>
+            </h1>
+            <p>
+              Skor tertinggi menunjukkan fasilitas yang paling membutuhkan
+              perhatian berdasarkan hasil perhitungan Simple Additive Weighting.
+            </p>
+          </div>
+          <aside>
+            <div>
+              <b>{responseCount || "—"}</b>
+              <span>Respons dianalisis</span>
+            </div>
+            <div>
+              <b>{rankedResults.length || "—"}</b>
+              <span>Fasilitas diperingkat</span>
+            </div>
+            <div>
+              <b>1,00</b>
+              <span>Total bobot SAW</span>
+            </div>
+          </aside>
+        </section>
+        <section className="public-results-content">
+          <div className="public-method-note">
+            <Icon name="target" size={21} />
+            <div>
+              <b>Simple Additive Weighting (SAW)</b>
+              <p>
+                C1 Kesenjangan kepuasan 0,40 · C2 Jumlah penilaian rendah 0,30 ·
+                C3 Proporsi penilaian rendah 0,30
+              </p>
+            </div>
+          </div>
+          {rankedResults.length ? (
+            <div className="public-results-table-wrap">
+              <table className="public-results-table">
+                <thead>
+                  <tr>
+                    <th>Peringkat</th>
+                    <th>Fasilitas</th>
+                    <th>Rata-rata</th>
+                    <th>Kesenjangan</th>
+                    <th>Rating rendah</th>
+                    <th>Proporsi</th>
+                    <th>Skor SAW</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rankedResults.map((result) => (
+                    <tr key={result.id}>
+                      <td>
+                        <span className={`public-rank rank-${result.rank}`}>
+                          {String(result.rank).padStart(2, "0")}
+                        </span>
+                      </td>
+                      <td>
+                        <b>{result.name}</b>
+                        <small>{result.recommendation}</small>
+                      </td>
+                      <td>{formatNumber(result.average)}</td>
+                      <td>{formatNumber(result.gap)}</td>
+                      <td>
+                        {result.lowCount} dari {result.validCount}
+                      </td>
+                      <td>{formatNumber(result.lowProportion * 100, 1)}%</td>
+                      <td>
+                        <strong>{formatNumber(result.score, 3)}</strong>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="public-results-empty detail-empty">
+              <span>
+                <Icon name="target" size={28} />
+              </span>
+              <div>
+                <h3>Belum ada hasil yang dapat ditampilkan</h3>
+                <p>
+                  Administrator perlu mengimpor CSV Google Forms terlebih
+                  dahulu. Halaman ini tidak menggunakan angka simulasi.
+                </p>
+              </div>
+            </div>
+          )}
+        </section>
+      </main>
+      <footer className="public-footer">
+        <b>Junction Analytics</b>
+        <span>Hasil publik analisis kepuasan fasilitas</span>
       </footer>
     </div>
   )
@@ -2061,6 +2264,7 @@ export default function App() {
     [allResponses, filters],
   )
   const results = useMemo(() => analyze(responses), [responses])
+  const publicResults = useMemo(() => analyze(allResponses), [allResponses])
 
   function openImport() {
     fileInput.current?.click()
@@ -2133,11 +2337,25 @@ export default function App() {
 
   if (!isAdmin) {
     if (publicPage === "survey") return <SurveyQrPage setPage={setPublicPage} />
+    if (publicPage === "results")
+      return (
+        <PublicResultsPage
+          setPage={setPublicPage}
+          results={publicResults}
+          responseCount={allResponses.length}
+        />
+      )
     if (publicPage === "login")
       return (
         <LoginPage setPage={setPublicPage} onLogin={() => setIsAdmin(true)} />
       )
-    return <PublicHome setPage={setPublicPage} />
+    return (
+      <PublicHome
+        setPage={setPublicPage}
+        results={publicResults}
+        responseCount={allResponses.length}
+      />
+    )
   }
 
   const content = selected ? (
