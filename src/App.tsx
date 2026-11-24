@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
+import { getSpreadsheetCSV } from "./services/googleSheets";
 
 type Page = "Dashboard" | "Data Kuesioner" | "Hasil SAW" | "Saran Responden" | "Metode SAW" | "Pengaturan"
 type PublicPage = "home" | "survey" | "results" | "login"
@@ -67,7 +68,7 @@ type ImportNotice = {
   details: string[]
 }
 
-const EXPECTED_RESPONSES = 42
+const EXPECTED_RESPONSES = 60
 const WEIGHTS = { gap: 0.4, lowCount: 0.3, lowProportion: 0.3 }
 const EMPTY_FILTERS: Filters = {
   faculty: "",
@@ -848,11 +849,10 @@ function EmptyState({ onImport }: { onImport: () => void }) {
       </span>
       <h2>Data rating asli belum dimuat</h2>
       <p>
-        Impor CSV Google Forms berisi 42 respons untuk menampilkan statistik,
-        grafik, dan peringkat SAW. Aplikasi tidak menampilkan angka simulasi.
+        Sinkronisasi Google Spreadsheet untuk memuat data responden dan menampilkan statistik, grafik, serta peringkat SAW.
       </p>
       <Button icon="download" onClick={onImport}>
-        Impor CSV asli
+        Sinkronisasi Spreadsheet
       </Button>
     </div>
   )
@@ -864,7 +864,7 @@ function Dashboard({
   filters,
   setFilters,
   setPage,
-  openImport,
+  onSync,
   openDetail,
 }: {
   responses: SurveyResponse[]
@@ -872,7 +872,7 @@ function Dashboard({
   filters: Filters
   setFilters: (filters: Filters) => void
   setPage: (page: Page) => void
-  openImport: () => void
+  onSync: () => void
   openDetail: (facility: FacilityResult) => void
 }) {
   const validResults = results.filter((result) => result.validCount > 0)
@@ -894,8 +894,8 @@ function Dashboard({
         title="Dashboard Analisis Fasilitas Kampus Junction"
         description="Ringkasan kepuasan dan prioritas perbaikan berdasarkan metode Simple Additive Weighting."
         action={
-          <Button secondary icon="download" onClick={openImport}>
-            Impor CSV
+          <Button secondary icon="download" onClick={onSync}>
+            Sinkronisasi Spreadsheet
           </Button>
         }
       />
@@ -973,7 +973,7 @@ function Dashboard({
       </div>
       {!responses.length ? (
         <section className="card">
-          <EmptyState onImport={openImport} />
+          <EmptyState onImport={onSync} />
         </section>
       ) : (
         <>
@@ -1074,11 +1074,11 @@ function Dashboard({
 function QuestionnairePage({
   allResponses,
   responses,
-  openImport,
+  onSync,
 }: {
   allResponses: SurveyResponse[]
   responses: SurveyResponse[]
-  openImport: () => void
+  onSync: () => void
 }) {
   return (
     <>
@@ -1086,10 +1086,10 @@ function QuestionnairePage({
         title="Data Kuesioner"
         description="Data responden ditampilkan tanpa nama dan NIM untuk menjaga privasi."
         action={
-          <Button icon="download" onClick={openImport}>
-            Impor CSV Google Forms
-          </Button>
-        }
+        <Button icon="download" onClick={onSync}>
+          Sinkronisasi Google Spreadsheet
+        </Button>
+      }
       />
       <div className="mini-stats four">
         <div>
@@ -1115,7 +1115,7 @@ function QuestionnairePage({
       </div>
       {!allResponses.length ? (
         <section className="card">
-          <EmptyState onImport={openImport} />
+          <EmptyState onImport={onSync} />
         </section>
       ) : (
         <section className="card table-card wide-table">
@@ -1183,12 +1183,12 @@ function QuestionnairePage({
 function ResultsPage({
   responses,
   results,
-  openImport,
+  onSync,
   openDetail,
 }: {
   responses: SurveyResponse[]
   results: FacilityResult[]
-  openImport: () => void
+  onSync: () => void
   openDetail: (result: FacilityResult) => void
 }) {
   const [sortBy, setSortBy] = useState<"rank" | "score">("rank")
@@ -1225,7 +1225,7 @@ function ResultsPage({
       </div>
       {!responses.length ? (
         <section className="card">
-          <EmptyState onImport={openImport} />
+          <EmptyState onImport={onSync} />
         </section>
       ) : (
         <>
@@ -1311,10 +1311,10 @@ function ResultsPage({
 
 function SuggestionsPage({
   responses,
-  openImport,
+  onSync,
 }: {
   responses: SurveyResponse[]
-  openImport: () => void
+  onSync: () => void
 }) {
   const suggestions = responses.filter((response) => response.suggestion)
   const themes = facilities
@@ -1336,7 +1336,7 @@ function SuggestionsPage({
       />
       {!responses.length ? (
         <section className="card">
-          <EmptyState onImport={openImport} />
+          <EmptyState onImport={onSync} />
         </section>
       ) : (
         <>
@@ -2305,7 +2305,6 @@ export default function App() {
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
   const [selected, setSelected] = useState<FacilityResult | null>(null)
   const [importMessage, setImportMessage] = useState<ImportNotice | null>(null)
-  const fileInput = useRef<HTMLInputElement>(null)
   const responses = useMemo(
     () =>
       allResponses.filter((response) =>
@@ -2319,69 +2318,40 @@ export default function App() {
   const results = useMemo(() => analyze(responses), [responses])
   const publicResults = useMemo(() => analyze(allResponses), [allResponses])
 
-  function openImport() {
-    fileInput.current?.click()
+ function onSync() {
+    void handleLoadSpreadsheet()
   }
 
-  async function handleImport(file?: File) {
-    if (!file) return
-    const result = importResponses(await file.text())
-    const recognizedCount = result.recognizedCriteria.length
-    const details = [
-      `File: ${file.name} · pemisah terdeteksi: ${
-        result.delimiter === ";" ? "titik koma (;)" : "koma (,)"
-      }.`,
-      `${result.responses.length} responden terbaca dan ${recognizedCount} dari 14 kriteria rating dikenali.`,
-    ]
-    if (recognizedCount) {
-      details.push(
-        `Kolom rating dikenali: ${result.recognizedCriteria.map((item) => `${item.criterion} (${item.facilityName})`).join(", ")}.`,
-      )
-    }
-    if (result.affectedRows) {
-      details.push(
-        `${result.affectedRows} baris memiliki masalah: ${result.emptyRatingCells} nilai rating kosong, ${result.invalidRatingCells} nilai di luar angka 1–5, dan ${result.malformedRows} baris dengan jumlah kolom tidak sesuai. Nilai bermasalah tidak dihitung, tetapi baris responden tetap disimpan.`,
-      )
-    } else if (recognizedCount && result.responses.length) {
-      details.push(
-        "Status validasi: seluruh nilai pada kolom rating yang dikenali valid (angka 1–5).",
-      )
-    }
-    if (result.missingCriteria.length) {
-      details.push(
-        `Kolom rating belum ditemukan: ${result.missingCriteria.join(", ")}.`,
-      )
-      details.push(
-        `Nama kolom yang berhasil dibaca: ${
-          result.headers.length
-            ? result.headers.join(" | ")
-            : "tidak ada header terbaca"
-        }.`,
-      )
-    }
-    if (!result.responses.length || !recognizedCount) {
-      setImportMessage({
-        tone: "error",
-        title:
-          "Struktur CSV belum dapat digunakan. Data yang sudah ada tidak diubah.",
-        details,
-      })
-    } else {
+  async function handleLoadSpreadsheet() {
+    try {
+      const csv = await getSpreadsheetCSV()
+      const result = importResponses(csv)
+
+      if (!result.responses.length) {
+        throw new Error("Tidak ada data responden yang berhasil dibaca.")
+      }
+
       setAllResponses(result.responses)
       setFilters(EMPTY_FILTERS)
+
       setImportMessage({
-        tone:
-          result.missingCriteria.length || result.affectedRows
-            ? "warning"
-            : "success",
-        title:
-          result.missingCriteria.length || result.affectedRows
-            ? "CSV berhasil diimpor dengan catatan validasi."
-            : "CSV berhasil diimpor dan tervalidasi.",
-        details,
+        tone: "success",
+        title: "Sinkronisasi berhasil",
+        details: [
+          `${result.responses.length} respons berhasil dimuat dari Google Spreadsheet.`,
+        ],
+      })
+    } catch (error) {
+      setImportMessage({
+        tone: "error",
+        title: "Sinkronisasi gagal",
+        details: [
+          error instanceof Error
+            ? error.message
+            : "Gagal mengambil data Google Spreadsheet.",
+        ],
       })
     }
-    setPage("Data Kuesioner")
   }
 
   function openDetail(result: FacilityResult) {
@@ -2433,24 +2403,24 @@ export default function App() {
       filters={filters}
       setFilters={setFilters}
       setPage={setPage}
-      openImport={openImport}
+      onSync={onSync}
       openDetail={openDetail}
     />
   ) : page === "Data Kuesioner" ? (
     <QuestionnairePage
       allResponses={allResponses}
       responses={responses}
-      openImport={openImport}
+      onSync={() => void handleLoadSpreadsheet()}
     />
   ) : page === "Hasil SAW" ? (
     <ResultsPage
       responses={responses}
       results={results}
-      openImport={openImport}
+      onSync={onSync}
       openDetail={openDetail}
     />
   ) : page === "Saran Responden" ? (
-    <SuggestionsPage responses={responses} openImport={openImport} />
+    <SuggestionsPage responses={responses} onSync={onSync} />
   ) : page === "Metode SAW" ? (
     <MethodPage />
   ) : (
@@ -2459,16 +2429,12 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <input
-        ref={fileInput}
-        className="file-input"
-        type="file"
-        accept=".csv,text/csv"
-        onChange={(event) => {
-          void handleImport(event.target.files?.[0])
-          event.target.value = ""
-        }}
-      />
+      <button
+        className="sync-button"
+        onClick={() => void handleLoadSpreadsheet()}
+      >
+        Sinkronisasi Google Spreadsheet
+      </button>
       <aside className="sidebar">
         <div className="brand">
           <span className="brand-mark">J</span>
@@ -2565,3 +2531,4 @@ export default function App() {
     </div>
   )
 }
+
