@@ -6,7 +6,10 @@ export async function getSpreadsheetCSV(): Promise<string> {
     throw new Error("URL Google Sheets API belum diatur.");
   }
 
-  const response = await fetch(API_URL);
+  const response = await fetch(API_URL, {
+    // Hindari mengambil respons lama dari cache browser saat sinkronisasi ulang.
+    cache: "no-store",
+  });
 
   if (!response.ok) {
     throw new Error("Gagal mengambil data Google Spreadsheet.");

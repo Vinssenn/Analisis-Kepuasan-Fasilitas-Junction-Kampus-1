@@ -91,3 +91,176 @@ header { height: 72px; background: white; border-bottom: 1px solid var(--border)
 @media (max-width:520px){
   .public-results-section{padding:65px 18px}.public-section-heading{display:block}.public-section-heading .public-outline{margin-top:20px}.public-result-summary{grid-template-columns:50px 1fr;padding:21px}.summary-rank{font-size:30px}.summary-score{grid-column:2;text-align:left}.public-ranking-preview article{grid-template-columns:48px 1fr}.public-ranking-preview article>strong{grid-column:2}.public-results-empty{align-items:flex-start}.results-hero{padding:25px 18px 50px}.results-hero h1{font-size:40px}.results-hero aside{padding:15px}.results-hero aside>div{padding:0 8px}.public-results-content{padding:35px 18px 60px}.public-method-note{align-items:flex-start}
 }
+
+
+/* ========================================
+   NOTIFICATION DROPDOWN - JUNCTIFY
+======================================== */
+
+.notification-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.icon-btn.notification {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid #e5eaf1;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #52627a;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.icon-btn.notification:hover {
+  background: #f1f5ff;
+  color: #3478f6;
+  border-color: #cbdcff;
+}
+
+.notification-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #ffffff;
+  border-radius: 20px;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.notification-panel {
+  position: absolute;
+  top: calc(100% + 14px);
+  right: 0;
+  z-index: 1000;
+  width: 340px;
+  max-width: calc(100vw - 32px);
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #e8edf5;
+  border-radius: 16px;
+  box-shadow: 0 12px 35px rgba(24, 45, 80, 0.14);
+  animation: notificationAppear 0.18s ease-out;
+}
+
+.notification-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  border-bottom: 1px solid #edf0f5;
+}
+
+.notification-panel-header b {
+  color: #17365d;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.notification-panel-header span {
+  padding: 4px 9px;
+  border-radius: 20px;
+  background: #edf4ff;
+  color: #3478f6;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.notification-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 115px;
+  padding: 24px;
+  color: #8995a8;
+  font-size: 13px;
+  text-align: center;
+}
+
+.notification-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px 20px;
+  transition: background 0.2s ease;
+}
+
+.notification-item:hover {
+  background: #f8faff;
+}
+
+.notification-item > svg {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  padding: 9px;
+  border-radius: 10px;
+  background: #edf4ff;
+  color: #3478f6;
+}
+
+.notification-item b {
+  display: block;
+  margin-bottom: 5px;
+  color: #26364d;
+  font-size: 13px;
+}
+
+.notification-item p {
+  margin: 0;
+  color: #8490a3;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.notification-read {
+  width: 100%;
+  padding: 13px 16px;
+  border: none;
+  border-top: 1px solid #edf0f5;
+  background: #f8faff;
+  color: #3478f6;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.notification-read:hover {
+  background: #edf4ff;
+}
+
+@keyframes notificationAppear {
+  from {
+    opacity: 0;
+    transform: translateY(-7px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Tampilan notifikasi pada layar kecil */
+@media (max-width: 480px) {
+  .notification-panel {
+    position: fixed;
+    top: 76px;
+    right: 16px;
+    width: calc(100vw - 32px);
+  }
+}
